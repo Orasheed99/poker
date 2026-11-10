@@ -88,7 +88,18 @@
       }
       .btn.gold { background: var(--gold); color: #221d05; }
       .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+      .btn.danger { background: var(--danger); color: #fff; }
       .btn.small { width: auto; padding: 8px 14px; font-size: 14px; }
+      .playback-status {
+        display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600;
+        border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; margin-bottom: 10px; background: var(--panel-2);
+      }
+      .playback-status .dot { flex: none; }
+      .playback-status.paused { border-color: var(--gold); }
+      .playback-status.stopping, .playback-status.ended { border-color: var(--danger); }
+      .playback-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+      .playback-row .btn { width: auto; flex: 1 1 0; margin-bottom: 0; white-space: nowrap; }
+      .playback-note { font-size: 13px; color: var(--muted); line-height: 1.45; margin: 2px 0 10px; }
       .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--muted); font-size: 13px; }
       .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
       .join-row { display: flex; gap: 10px; }
@@ -441,8 +452,34 @@
         var G = {
           phase: "lobby", board: [], deck: [], dealerSeat: -1, turnId: null,
           currentBet: 0, minRaise: settings.bb, handNo: 0, reveal: false,
-          winnerText: "", log: [], locked: false, sb: settings.sb, bb: settings.bb, buyIn: settings.buyIn
+          winnerText: "", log: [], locked: false, sb: settings.sb, bb: settings.bb, buyIn: settings.buyIn,
+          paused: false, stopRequested: false, ended: false
         };
+        var autoTimer = null;
+        var AUTO_DEAL_MS = 2600;
+        function isMidHand() { return G.phase === "preflop" || G.phase === "flop" || G.phase === "turn" || G.phase === "river"; }
+        function clearAuto() { if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; } }
+        function scheduleAuto() {
+          clearAuto();
+          if (G.paused || G.ended || G.stopRequested) return;
+          if (G.phase !== "lobby" && G.phase !== "handEnd") return;
+          autoTimer = setTimeout(function () {
+            autoTimer = null;
+            if (G.paused || G.ended || G.stopRequested) return;
+            if (G.phase !== "lobby" && G.phase !== "handEnd") return;
+            botRebuys();
+            startHand();
+          }, AUTO_DEAL_MS);
+        }
+        function onHandEnded() {
+          clearAuto();
+          if (G.stopRequested && !G.ended) {
+            G.ended = true;
+            log("Game ended — stop was requested, so no new hand will be dealt.");
+            return;
+          }
+          scheduleAuto();
+        }
         function log(txt, street) { G.log.unshift({ txt: txt, street: !!street }); if (G.log.length > 60) G.log.pop(); }
         function emit() { onChange(); }
         function seated() { return order.map(function (id) { return P[id]; }).filter(function (p) { return p.seat !== null; }); }
@@ -487,6 +524,7 @@
           if (p.chips === 0) p.chips = G.buyIn;
           log(p.name + " took seat " + (seat + 1) + ".");
           emit();
+          scheduleAuto();
         }
         function stand(id) {
           var p = P[id]; if (!p) return;
@@ -497,8 +535,10 @@
         /* ---------- hand flow ---------- */
         function eligible() { return seated().filter(function (p) { return p.chips > 0 && (p.connected || p.isBot); }); }
         function startHand() {
+          if (G.paused || G.ended || G.stopRequested) return false;
           var el = eligible();
           if (el.length < 2 || (G.phase !== "lobby" && G.phase !== "handEnd")) return false;
+          clearAuto();
           G.handNo++; G.reveal = false; G.winnerText = ""; G.board = []; G.deck = newDeck(); G.locked = false;
           seated().forEach(function (p) {
             p.inHand = false; p.folded = false; p.allIn = false; p.cards = [];
@@ -553,6 +593,7 @@
         function runout() {
           G.locked = true; setTurn(null); emit();
           function step() {
+            if (G.paused) { setTimeout(step, 400); return; }
             if (G.board.length >= 5) { G.locked = false; showdown(); return; }
             seated().forEach(function (p) { p.betRound = 0; });
             G.currentBet = 0;
@@ -580,6 +621,8 @@
           G.phase = "handEnd"; G.reveal = false; setTurn(null);
           seated().forEach(function (p) { p.betRound = 0; });
           emit();
+          onHandEnded();
+          if (G.ended || G.stopRequested) emit();
         }
         function showdown() {
           G.phase = "handEnd"; G.reveal = true; setTurn(null);
@@ -611,8 +654,11 @@
           summary.forEach(function (s) { log("Showdown: " + s + "."); });
           seated().forEach(function (p) { p.betRound = 0; });
           emit();
+          onHandEnded();
+          if (G.ended || G.stopRequested) emit();
         }
         function afterAction() {
+          if (G.paused) { emit(); return; }
           if (G.phase === "lobby" || G.phase === "handEnd") { emit(); return; }
           if (inHand().length === 1) { winByFold(); return; }
           var pending = inHand().filter(needsAction);
@@ -625,7 +671,7 @@
         }
         function act(id, action, amount) {
           var p = P[id];
-          if (!p || G.locked || G.turnId !== id) return;
+          if (!p || G.locked || G.paused || G.ended || G.turnId !== id) return;
           var toCall = G.currentBet - p.betRound;
           G.lastActorSeat = p.seat;
           if (action === "fold") {
@@ -663,9 +709,9 @@
         /* ---------- bots ---------- */
         function maybeBot() {
           var p = G.turnId ? P[G.turnId] : null;
-          if (!p || !p.isBot || G.locked) return;
+          if (!p || !p.isBot || G.locked || G.paused || G.ended) return;
           setTimeout(function () {
-            if (!P[p.id] || G.turnId !== p.id || G.locked) return;
+            if (!P[p.id] || G.turnId !== p.id || G.locked || G.paused || G.ended) return;
             botDecision(p);
           }, 650 + Math.random() * 750);
         }
@@ -706,6 +752,47 @@
           seated().forEach(function (p) { if (p.isBot && p.chips === 0) p.chips = G.buyIn; });
         }
 
+        /* ---------- playback: pause / stop / resume ---------- */
+        function pauseGame() {
+          if (G.ended || G.paused) return;
+          G.paused = true;
+          clearAuto(); // cancel a pending auto-deal right away
+          log("Game paused.");
+          emit();
+        }
+        function resumeGame() {
+          if (!G.paused) return;
+          G.paused = false;
+          log("Game resumed.");
+          emit();
+          // Pick up exactly where it froze: a bot's turn, or the next hand.
+          if (isMidHand()) {
+            var tp = G.turnId ? P[G.turnId] : null;
+            if (!tp) afterAction();
+            else maybeBot();
+          } else scheduleAuto();
+        }
+        function stopGame() {
+          if (G.ended || G.stopRequested) return;
+          G.stopRequested = true;
+          clearAuto();
+          if (isMidHand()) {
+            log("Stop requested — the game will end after this hand.");
+          } else {
+            G.ended = true;
+            log("Game ended.");
+          }
+          emit();
+        }
+        function restartGame() {
+          if (!G.ended && !G.stopRequested && !G.paused) { scheduleAuto(); return; }
+          G.paused = false; G.stopRequested = false; G.ended = false;
+          log("New game started — hands will keep dealing.");
+          emit();
+          scheduleAuto();
+        }
+        function dispose() { clearAuto(); }
+
         /* ---------- per-viewer state ---------- */
         function makeView(forId) {
           var seatsArr = [];
@@ -725,16 +812,19 @@
               wonAmt: p.wonAmt, cards: showCards
             });
           }
+          var playStatus = G.ended ? "ended" : (G.paused && G.stopRequested ? "paused-stopping" : (G.paused ? "paused" : (G.stopRequested ? "stopping" : "playing")));
           return {
             you: forId, phase: G.phase, board: G.board, pot: potTotal(), handNo: G.handNo,
             currentBet: G.currentBet, minRaise: G.minRaise, turnId: G.turnId, dealerSeat: G.dealerSeat,
             winnerText: G.winnerText, seats: seatsArr, log: G.log.slice(0, 40),
-            sb: G.sb, bb: G.bb, buyIn: G.buyIn, seatedCount: seated().length
+            sb: G.sb, bb: G.bb, buyIn: G.buyIn, seatedCount: seated().length,
+            paused: G.paused, stopRequested: G.stopRequested, ended: G.ended, playStatus: playStatus
           };
         }
         return { G: G, P: P, addPlayer: addPlayer, removePlayer: removePlayer, sit: sit, stand: stand,
-          startHand: function () { botRebuys(); return startHand(); }, act: act, addBot: addBot,
-          rebuy: rebuy, makeView: makeView, log: log };
+          startHand: function () { if (G.paused || G.ended || G.stopRequested) return false; botRebuys(); return startHand(); }, act: act, addBot: addBot,
+          rebuy: rebuy, makeView: makeView, log: log,
+          pauseGame: pauseGame, resumeGame: resumeGame, stopGame: stopGame, restartGame: restartGame, dispose: dispose, scheduleAuto: scheduleAuto };
       }
 
       /* ============================================================
@@ -776,6 +866,7 @@
 
       /* ---------- engine wiring ---------- */
       function onEngineChange() {
+        if (!Engine) return;
         if (mode === "host") {
           render(Engine.makeView(myId));
           Object.keys(guestConns).forEach(function (pid) {
@@ -807,6 +898,10 @@
         if (mode === "guest") return;
         Engine.startHand();
       }
+      function sendPause() { if (mode === "guest" || !Engine) return; Engine.pauseGame(); }
+      function sendResume() { if (mode === "guest" || !Engine) return; Engine.resumeGame(); }
+      function sendStop() { if (mode === "guest" || !Engine) return; Engine.stopGame(); }
+      function sendRestart() { if (mode === "guest" || !Engine) return; Engine.restartGame(); }
       function sendAddBot() {
         if (mode === "guest") return;
         Engine.addBot(); onEngineChange();
@@ -926,7 +1021,7 @@
         Engine.sit(myId, 0);
         Engine.addBot(); Engine.addBot(); Engine.addBot();
         enterTable("SOLO", "Solo practice vs bots");
-        Engine.log("Practice table — you're playing bots. Deal when ready.");
+        Engine.log("Practice table — you're playing bots. Hands deal automatically.");
         onEngineChange();
       }
 
@@ -940,6 +1035,7 @@
 
       function leaveTable() {
         try { if (peer) peer.destroy(); } catch (e) {}
+        if (Engine && Engine.dispose) Engine.dispose();
         peer = null; hostConn = null; guestConns = {}; Engine = null; mode = null; lastView = null;
         $("tableView").hidden = true; $("lobbyView").hidden = false;
         $("banner").classList.remove("show");
@@ -978,11 +1074,13 @@
         for (var i = 0; i < 5; i++) board.appendChild(cardEl(view.board[i] || null, ""));
         $("potAmt").textContent = fmt(view.phase === "handEnd" ? 0 : view.pot);
         var cm = $("centerMsg");
-        if (view.phase === "handEnd" && view.winnerText) { cm.innerHTML = "<span class='winner-msg'>" + esc(view.winnerText) + "</span>"; }
+        if (view.ended) { cm.textContent = "Game ended. The host can start a new game from Table controls."; }
+        else if (view.paused) { cm.textContent = view.stopRequested ? "Paused — stop is set, so the game will end after this hand once resumed." : "Paused — the game is frozen right where it stopped."; }
+        else if (view.phase === "handEnd" && view.winnerText) { cm.innerHTML = "<span class='winner-msg'>" + esc(view.winnerText) + "</span>" + (view.stopRequested ? " Ending after this hand — no new hand will be dealt." : " Next hand deals automatically…"); }
         else if (view.turnId) {
           var tp = view.seats.filter(function (s) { return s && s.id === view.turnId; })[0];
           cm.textContent = tp ? (tp.id === view.you ? "Your move." : tp.name + " is thinking…") : "";
-        } else if (view.phase === "lobby" || view.phase === "handEnd") cm.textContent = view.seatedCount >= 2 ? "Ready when the host deals." : "Waiting for at least 2 seated players.";
+        } else if (view.phase === "lobby" || view.phase === "handEnd") cm.textContent = view.seatedCount >= 2 ? "Next hand deals automatically…" : "Waiting for at least 2 seated players.";
         else cm.textContent = "";
         renderSeats(view);
         renderActions(view);
@@ -1048,7 +1146,11 @@
         else { mc.appendChild(cardEl(null, "lg")); mc.appendChild(cardEl(null, "lg")); }
         row.appendChild(mc);
         var info = document.createElement("div"); info.style.flex = "1"; info.style.minWidth = "180px";
-        if (!me) {
+        if (view.ended) {
+          info.innerHTML = "<div class='status-line'><b>Game ended.</b> No new hands will be dealt. " + (me ? "Your stack: <b>" + fmt(me.chips) + "</b> chips." : "") + "</div>";
+        } else if (view.paused) {
+          info.innerHTML = "<div class='status-line'><b>Paused.</b> The game is frozen — no moves, no bots, no next hand until the host resumes." + (view.stopRequested ? " Stop is set, so it will end after this hand once resumed." : "") + "</div>";
+        } else if (!me) {
           info.innerHTML = "<div class='status-line'><b>You're spectating.</b> Tap an empty seat at the table to sit down with " + fmt(view.buyIn) + " chips.</div>";
         } else if (me.chips === 0 && !me.inHand) {
           info.innerHTML = "<div class='status-line'><b>You're out of chips.</b></div>";
@@ -1068,6 +1170,7 @@
         }
         row.appendChild(info);
         bar.appendChild(row);
+        if (view.paused || view.ended) return;
         if (!me || view.turnId !== view.you || !me.inHand || me.folded) return;
         // ---- action controls ----
         var toCall = view.currentBet - me.betRound;
@@ -1129,11 +1232,63 @@
       function renderSide(view) {
         var hc = $("hostControls"); hc.innerHTML = "";
         var isHostLike = mode === "host" || mode === "solo";
+        var inProgress = ["preflop", "flop", "turn", "river"].indexOf(view.phase) !== -1;
+        // ---- playback status (visible to everyone) ----
+        var statusBox = document.createElement("div");
+        var statusKind = view.ended ? "ended" : (view.paused ? "paused" : (view.stopRequested ? "stopping" : "playing"));
+        statusBox.className = "playback-status " + statusKind;
+        var statusDot = document.createElement("span");
+        statusDot.className = "dot" + (statusKind === "playing" ? " ok" : (statusKind === "paused" ? "" : " bad"));
+        if (statusKind === "paused") statusDot.style.background = "var(--gold)";
+        statusBox.appendChild(statusDot);
+        var statusTxt = document.createElement("span");
+        if (view.ended) statusTxt.textContent = "Game ended — no new hands will be dealt.";
+        else if (view.paused && view.stopRequested) statusTxt.textContent = "Paused — stop is set, so the game ends after this hand once resumed.";
+        else if (view.paused) statusTxt.textContent = "Paused — frozen immediately.";
+        else if (view.stopRequested) statusTxt.textContent = "Stopping — this hand will finish, then the game ends.";
+        else statusTxt.textContent = inProgress ? "Playing — hands keep dealing automatically." : (view.seatedCount >= 2 ? "Playing — next hand deals automatically…" : "Playing — waiting for at least 2 seated players.");
+        statusBox.appendChild(statusTxt);
+        hc.appendChild(statusBox);
+
         if (isHostLike) {
+          // ---- Pause / Resume + Stop ----
+          var prow = document.createElement("div"); prow.className = "playback-row";
+          if (view.ended) {
+            var restart = document.createElement("button"); restart.className = "btn gold";
+            restart.textContent = "Start a new game";
+            restart.addEventListener("click", sendRestart);
+            prow.appendChild(restart);
+          } else if (view.paused) {
+            var resume = document.createElement("button"); resume.className = "btn gold";
+            resume.textContent = "Resume";
+            resume.addEventListener("click", sendResume);
+            prow.appendChild(resume);
+            var stopP = document.createElement("button"); stopP.className = "btn danger";
+            stopP.textContent = view.stopRequested ? "Stopping…" : "Stop";
+            stopP.disabled = !!view.stopRequested;
+            stopP.addEventListener("click", sendStop);
+            prow.appendChild(stopP);
+          } else {
+            var pause = document.createElement("button"); pause.className = "btn ghost";
+            pause.textContent = "Pause";
+            pause.addEventListener("click", sendPause);
+            prow.appendChild(pause);
+            var stop = document.createElement("button"); stop.className = "btn danger";
+            stop.textContent = view.stopRequested ? "Stopping…" : "Stop";
+            stop.disabled = !!view.stopRequested;
+            stop.addEventListener("click", sendStop);
+            prow.appendChild(stop);
+          }
+          hc.appendChild(prow);
+          var note = document.createElement("div"); note.className = "playback-note";
+          note.textContent = view.ended ? "Start a new game to deal again with the players still seated."
+            : (view.stopRequested ? "Stop is set: the current hand plays out, then the game ends."
+            : "Pause freezes the game right away. Stop lets the current hand finish, then ends the game — no new hand is dealt.");
+          hc.appendChild(note);
+
           var deal = document.createElement("button"); deal.className = "btn gold";
-          var inProgress = ["preflop", "flop", "turn", "river"].indexOf(view.phase) !== -1;
-          deal.textContent = inProgress ? "Hand in progress…" : (view.handNo ? "Deal next hand" : "Deal the first hand");
-          deal.disabled = inProgress || view.seatedCount < 2;
+          deal.textContent = inProgress ? "Hand in progress…" : (view.handNo ? "Deal next hand now" : "Deal the first hand now");
+          deal.disabled = inProgress || view.seatedCount < 2 || view.paused || view.ended || view.stopRequested;
           deal.addEventListener("click", sendDeal);
           hc.appendChild(deal);
           var bot = document.createElement("button"); bot.className = "btn ghost";
@@ -1143,7 +1298,7 @@
           hc.appendChild(bot);
           $("tableInfo").innerHTML = "You're hosting: <b>" + view.seatedCount + " / 8</b> seated · Room <b>" + esc(roomCode) + "</b>. Blinds <b>" + view.sb + " / " + view.bb + "</b>, buy-in <b>" + fmt(view.buyIn) + "</b>. The table lives in this tab — keep it open while you play.";
         } else {
-          $("tableInfo").innerHTML = "You're a guest at <b>" + esc(roomCode) + "</b> · <b>" + view.seatedCount + " / 8</b> seated · Blinds <b>" + view.sb + " / " + view.bb + "</b>, buy-in <b>" + fmt(view.buyIn) + "</b>. The host deals the hands.";
+          $("tableInfo").innerHTML = "You're a guest at <b>" + esc(roomCode) + "</b> · <b>" + view.seatedCount + " / 8</b> seated · Blinds <b>" + view.sb + " / " + view.bb + "</b>, buy-in <b>" + fmt(view.buyIn) + "</b>. The host deals the hands and controls pause / stop.";
         }
         // variant chips
         var vc = $("variantChips"); vc.innerHTML = "";

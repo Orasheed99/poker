@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Poker Website</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+    <style>
+      :root {
+        --bg: #e9ede6;
+        --panel: #ffffff;
+        --panel-2: #f2f4ee;
+        --ink: #182118;
+        --ink-soft: #43503f;
+        --muted: #6d7a6a;
+        --line: #cfd6c8;
+        --felt: #1d6a44;
+        --felt-deep: #124a2d;
+        --felt-rail: #5a3d22;
+        --gold: #c9a227;
+        --gold-soft: #e8cf6f;
+        --red: #b3372c;
+        --card-bg: #fdfdf8;
+        --card-ink: #1c1c1c;
+        --chip: #20342a;
+        --btn: #20342a;
+        --btn-ink: #f2f5ee;
+        --accent: #1d6a44;
+        --danger: #b3372c;
+        --shadow: 0 10px 30px rgba(20, 35, 22, 0.18);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0c110d;
+          --panel: #151d16;
+          --panel-2: #1a241b;
+          --ink: #e9efe6;
+          --ink-soft: #b9c6b4;
+          --muted: #84937f;
+          --line: #2c3a2d;
+          --felt: #1a5c3a;
+          --felt-deep: #0f3d25;
+          --felt-rail: #4a3018;
+          --card-bg: #f4f2e9;
+          --chip: #e8cf6f;
+          --btn: #e8cf6f;
+          --btn-ink: #221d05;
+          --accent: #7fc79b;
+          --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Barlow", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        min-height: 100vh;
+        overflow-x: clip;
+      }
+      button, input, select { font: inherit; }
+      button { cursor: pointer; }
+      button:disabled { cursor: not-allowed; opacity: 0.45; }
+      h1, h2, .cond { font-family: "Barlow Condensed", "Barlow", sans-serif; letter-spacing: 0.02em; }
+
+      /* ---------- Lobby ---------- */
+      .lobby-wrap { max-width: 560px; margin: 0 auto; padding: 28px 16px 48px; }
+      .lobby-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 26px 24px; }
+      .lobby-card h1 { font-size: 34px; margin: 0 0 4px; font-weight: 700; }
+      .lobby-card p.sub { margin: 0 0 20px; color: var(--ink-soft); font-size: 15px; line-height: 1.45; }
+      .field { margin-bottom: 14px; }
+      .field label { display: block; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
+      .field input, .field select {
+        width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px;
+        background: var(--panel-2); color: var(--ink); font-size: 16px;
+      }
+      .field-row { display: flex; gap: 12px; }
+      .field-row .field { flex: 1; }
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        background: var(--btn); color: var(--btn-ink); border: none; border-radius: 9px;
+        padding: 12px 18px; font-weight: 600; font-size: 16px; width: 100%;
+      }
+      .btn.gold { background: var(--gold); color: #221d05; }
+      .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+      .btn.small { width: auto; padding: 8px 14px; font-size: 14px; }
+      .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--muted); font-size: 13px; }
+      .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+      .join-row { display: flex; gap: 10px; }
+      .join-row input { flex: 1 1 auto; min-width: 0; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 700; text-align: center; }
+      .join-row .btn { width: auto; white-space: nowrap; flex: none; }
+      @media (max-width: 480px) {
+        .join-row { flex-direction: column; }
+        .join-row .btn { width: 100%; }
+      }
+      .lobby-msg { min-height: 22px; margin-top: 12px; font-size: 14px; color: var(--danger); font-weight: 500; }
+      .lobby-msg.ok { color: var(--accent); }
+      .broker-note { margin-top: 14px; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+      .dot.ok { background: #3f9e4d; }
+      .dot.bad { background: var(--danger); }
+      .how { margin-top: 18px; font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
+      .how li { margin-bottom: 4px; }
+
+      /* ---------- Table view ---------- */
+      .topbar {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; z-index: 30;
+      }
+      .topbar .title { font-family: "Barlow Condensed", sans-serif; font-size: 22px; font-weight: 700; margin-right: 4px; }
+      .chip-pill {
+        display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2);
+        border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 600;
+      }
+      .chip-pill code { font-size: 16px; letter-spacing: 0.18em; font-weight: 700; }
+      .topbar .spacer { flex: 1; }
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; max-width: 1240px; margin: 0 auto; padding: 16px; align-items: start; }
+      @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+      .felt-wrap { position: relative; }
+      .felt {
+        position: relative; width: 100%; aspect-ratio: 16 / 10.5; min-height: 380px;
+        background: radial-gradient(ellipse at center, var(--felt) 55%, var(--felt-deep) 100%);
+        border: 14px solid var(--felt-rail); border-radius: 46% / 50%;
+        box-shadow: inset 0 0 60px rgba(0,0,0,0.35), var(--shadow);
+      }
+      @media (max-width: 560px) { .felt { min-height: 430px; aspect-ratio: 4 / 4.4; border-width: 10px; } }
+      .center {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        text-align: center; width: min(430px, 72%); color: #f3f6ef;
+      }
+      .pot-line { font-family: "Barlow Condensed", sans-serif; font-size: 21px; font-weight: 600; letter-spacing: 0.04em; }
+      .pot-line b { color: var(--gold-soft); font-size: 25px; }
+      .phase-line { font-size: 13px; text-transform: uppercase; letter-spacing: 0.14em; opacity: 0.85; margin-bottom: 6px; }
+      .board { display: flex; gap: 7px; justify-content: center; margin: 10px 0; min-height: 76px; }
+      .center-msg { font-size: 15px; font-weight: 600; min-height: 22px; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+      .winner-msg { color: var(--gold-soft); }
+
+      .card {
+        width: 52px; height: 74px; border-radius: 7px; background: var(--card-bg); color: var(--card-ink);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border: 1px solid #d8d4c4;
+        line-height: 1; flex: none; user-select: none;
+      }
+      .card .r { font-size: 21px; }
+      .card .s { font-size: 19px; }
+      .card.red { color: #b3372c; }
+      .card.empty { background: rgba(255,255,255,0.08); border: 1.5px dashed rgba(255,255,255,0.35); box-shadow: none; }
+      .card.back {
+        background: repeating-linear-gradient(45deg, #7c1f1a 0 6px, #93261f 6px 12px);
+        border: 2px solid #e9e2cf; color: transparent;
+      }
+      .card.sm { width: 32px; height: 45px; border-radius: 5px; }
+      .card.sm .r { font-size: 13px; } .card.sm .s { font-size: 12px; }
+      .card.lg { width: 62px; height: 88px; }
+      .card.lg .r { font-size: 26px; } .card.lg .s { font-size: 23px; }
+
+      .seat {
+        position: absolute; transform: translate(-50%, -50%); width: 118px; text-align: center; z-index: 5;
+      }
+      .seat .cards { display: flex; gap: 4px; justify-content: center; margin-bottom: 4px; min-height: 45px; }
+      .seat .plate {
+        background: var(--panel); color: var(--ink); border: 2px solid var(--line); border-radius: 11px;
+        padding: 5px 7px; box-shadow: 0 3px 8px rgba(0,0,0,0.28); position: relative;
+      }
+      .seat.me .plate { border-color: var(--gold); }
+      .seat.turn .plate { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft), 0 3px 10px rgba(0,0,0,0.35); }
+      .seat.folded { opacity: 0.45; }
+      .seat.disconnected .plate { opacity: 0.55; }
+      .seat .nm { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .seat .stk { font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+      .seat .act { font-size: 11.5px; color: var(--muted); min-height: 14px; font-weight: 600; }
+      .seat .avatar {
+        width: 30px; height: 30px; border-radius: 50%; margin: -18px auto 2px; background: var(--chip); color: var(--bg);
+        display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; border: 2px solid var(--panel);
+      }
+      @media (prefers-color-scheme: dark) { .seat .avatar { color: #221d05; } }
+      .dealer-btn {
+        position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 50%;
+        background: #fdfdf8; color: #1c1c1c; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+        border: 1.5px solid #b9b39d; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      }
+      .bet-chip {
+        display: inline-block; margin-top: 4px; background: var(--gold); color: #221d05; font-weight: 700; font-size: 12.5px;
+        border-radius: 999px; padding: 2px 9px; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      }
+      .won-tag { color: #2e7d32; font-weight: 700; font-size: 12.5px; }
+      @media (prefers-color-scheme: dark) { .won-tag { color: #8fd694; } }
+      .seat.empty-seat .plate { background: rgba(20,30,20,0.35); color: #eef3ea; border: 1.5px dashed rgba(255,255,255,0.5); box-shadow: none; cursor: pointer; }
+      .seat.empty-seat .plate:hover { background: rgba(20,30,20,0.55); }
+      .seat.empty-seat .nm { font-weight: 600; font-size: 13px; }
+      @media (max-width: 560px) {
+        .seat { width: 92px; }
+        .seat .nm { font-size: 12.5px; }
+        .seat .stk { font-size: 12px; }
+        .card { width: 44px; height: 62px; }
+        .card .r { font-size: 18px; } .card .s { font-size: 16px; }
+        .board { min-height: 64px; }
+      }
+
+      /* ---------- Action bar ---------- */
+      .actionbar {
+        margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+        padding: 14px 16px; box-shadow: var(--shadow);
+      }
+      .actionbar .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .my-cards { display: flex; gap: 7px; align-items: center; }
+      .my-cards .lbl { font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
+      .turn-banner { font-family: "Barlow Condensed", sans-serif; font-size: 22px; font-weight: 700; }
+      .turn-banner.mine { color: var(--accent); }
+      .act-btn {
+        border: none; border-radius: 9px; padding: 12px 20px; font-weight: 700; font-size: 16px;
+        background: var(--btn); color: var(--btn-ink);
+      }
+      .act-btn.fold { background: var(--danger); color: #fff; }
+      .act-btn.raise { background: var(--gold); color: #221d05; }
+      .raise-box { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; width: 100%; }
+      .raise-box input[type="range"] { flex: 1; min-width: 130px; accent-color: var(--gold); }
+      .raise-box input[type="number"] { width: 96px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--ink); font-weight: 600; }
+      .quick { display: flex; gap: 6px; flex-wrap: wrap; }
+      .quick button { border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); border-radius: 7px; padding: 7px 11px; font-size: 13.5px; font-weight: 600; }
+      .status-line { font-size: 15px; color: var(--ink-soft); }
+
+      /* ---------- Side panel ---------- */
+      .side { display: flex; flex-direction: column; gap: 14px; }
+      .panel-box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
+      .panel-box h2 { margin: 0 0 10px; font-size: 20px; font-weight: 700; }
+      .panel-box .btn { margin-bottom: 8px; }
+      .variant-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .vchip { font-size: 13px; font-weight: 600; border-radius: 999px; padding: 5px 11px; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); }
+      .vchip.live { background: var(--accent); border-color: var(--accent); color: #fff; }
+      @media (prefers-color-scheme: dark) { .vchip.live { color: #0c110d; } }
+      .vchip .soon { font-weight: 500; opacity: 0.75; font-size: 11.5px; }
+      .history { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow-y: auto; font-size: 14px; }
+      .history li { padding: 6px 2px; border-bottom: 1px solid var(--line); color: var(--ink-soft); line-height: 1.4; }
+      .history li:first-child { color: var(--ink); font-weight: 600; }
+      .history li.street { font-family: "Barlow Condensed", sans-serif; font-size: 16px; letter-spacing: 0.05em; color: var(--ink); text-transform: uppercase; }
+      .history-empty { color: var(--muted); font-size: 14px; }
+      .kv { font-size: 14px; color: var(--ink-soft); line-height: 1.6; }
+      .kv b { color: var(--ink); }
+      .banner {
+        display: none; background: #f6e3e1; border: 1px solid #d9a49e; color: #6d1f18; border-radius: 12px;
+        padding: 13px 16px; font-weight: 600; margin: 14px 16px 0; max-width: 1240px;
+      }
+      @media (prefers-color-scheme: dark) { .banner { background: #3a1d1a; color: #f0b8b1; border-color: #6e3a34; } }
+      .banner.show { display: block; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <!-- ================= LOBBY ================= -->
+    <section id="lobbyView" class="lobby-wrap">
+      <div class="lobby-card">
+        <h1>Hold'em night</h1>
+        <p class="sub">One table, up to 8 seats, play money. Whoever creates the table is the host — their browser runs the game, so the host tab has to stay open while you play.</p>
+
+        <div class="field">
+          <label for="nameInput">Your name at the table</label>
+          <input id="nameInput" type="text" maxlength="16" placeholder="e.g. Omar" autocomplete="off" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="blindsSel">Blinds</label>
+            <select id="blindsSel">
+              <option value="5,10">5 / 10</option>
+              <option value="10,20" selected>10 / 20</option>
+              <option value="25,50">25 / 50</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="buyinSel">Buy-in</label>
+            <select id="buyinSel">
+              <option value="500">500 chips</option>
+              <option value="1000" selected>1,000 chips</option>
+              <option value="2000">2,000 chips</option>
+            </select>
+          </div>
+        </div>
+        <button id="createBtn" class="btn gold">Create a table</button>
+
+        <div class="divider">or join a friend's table</div>
+        <div class="join-row">
+          <input id="joinCode" type="text" maxlength="4" placeholder="CODE" autocomplete="off" />
+          <button id="joinBtn" class="btn" style="width:auto">Join table</button>
+        </div>
+
+        <div class="divider">or warm up first</div>
+        <button id="soloBtn" class="btn ghost">Practice solo vs bots</button>
+
+        <div id="lobbyMsg" class="lobby-msg" role="status"></div>
+        <div class="broker-note"><span id="brokerDot" class="dot"></span><span id="brokerText">Checking the peer connection service…</span></div>
+
+        <ul class="how">
+          <li><b>Create</b> a table and you get a 4-letter room code.</li>
+          <li>Friends open this same link, type the code, and pick a seat.</li>
+          <li>Everyone sees the table; only you ever see your own hole cards.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ================= TABLE ================= -->
+    <section id="tableView" hidden>
+      <div class="topbar">
+        <span class="title">Hold'em</span>
+        <span class="chip-pill" id="roomPill">Room <code id="roomCodeTxt">----</code></span>
+        <span class="chip-pill"><span id="connDot" class="dot"></span><span id="connTxt">Connecting…</span></span>
+        <span class="chip-pill" id="blindsPill">Blinds 10 / 20 · Buy-in 1,000</span>
+        <span class="spacer"></span>
+        <button id="copyCodeBtn" class="btn ghost small">Copy room code</button>
+        <button id="leaveBtn" class="btn ghost small">Leave table</button>
+      </div>
+      <div id="banner" class="banner" role="alert"></div>
+
+      <div class="layout">
+        <div>
+          <div class="felt-wrap">
+            <div class="felt" id="felt">
+              <div class="center">
+                <div class="phase-line" id="phaseLabel">Lobby</div>
+                <div class="board" id="board"></div>
+                <div class="pot-line">Pot <b id="potAmt">0</b></div>
+                <div class="center-msg" id="centerMsg">Pick a seat to get in the game.</div>
+              </div>
+              <div id="seats"></div>
+            </div>
+          </div>
+
+          <div class="actionbar" id="actionBar"></div>
+        </div>
+
+        <aside class="side">
+          <div class="panel-box" id="hostPanel">
+            <h2>Table controls</h2>
+            <div id="hostControls"></div>
+            <div class="kv" id="tableInfo"></div>
+            <h2 style="margin-top:14px">Game</h2>
+            <div class="variant-chips" id="variantChips"></div>
+          </div>
+          <div class="panel-box">
+            <h2>Hand history</h2>
+            <ul class="history" id="historyList"></ul>
+            <div class="history-empty" id="historyEmpty">Nothing yet — deal the first hand.</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <script>
+      "use strict";
+      /* ============================================================
+         Poker Website — Phase 1: Texas Hold'em
+         Architecture: the host browser runs the authoritative game
+         engine; guests connect over WebRTC (PeerJS broker) and only
+         ever receive their own hole cards. Solo mode runs the same
+         engine locally with bots.
+
+         Rule packs: variant behaviour is parameterised through
+         RULE_PACKS so bomb pots, 3-card draw, 4-card draw and
+         baseball can be added as new packs later without touching
+         the transport or rendering layers. Only "holdem" is live.
+         ============================================================ */
+      var RULE_PACKS = {
+        holdem:   { id: "holdem",   name: "Texas Hold'em", holeCards: 2, community: 5, live: true },
+        bombpot:  { id: "bombpot",  name: "Bomb Pots",     holeCards: 2, community: 5, live: false, phase: "Phase 2" },
+        draw3:    { id: "draw3",    name: "3-Card Draw",   holeCards: 3, community: 0, live: false, phase: "Phase 2" },
+        draw4:    { id: "draw4",    name: "4-Card Draw",   holeCards: 4, community: 0, live: false, phase: "Phase 2" },
+        baseball: { id: "baseball", name: "Baseball",      holeCards: 7, community: 0, live: false, phase: "Phase 3" }
+      };
+
+      /* ---------------- Cards & hand evaluation ---------------- */
+      var SUIT_GLYPH = ["♠", "♥", "♦", "♣"];
+      var RANK_TXT = { 11: "J", 12: "Q", 13: "K", 14: "A" };
+      function rankTxt(r) { return RANK_TXT[r] || String(r); }
+      function newDeck() {
+        var d = [];
+        for (var s = 0; s < 4; s++) for (var r = 2; r <= 14; r++) d.push({ r: r, s: s });
+        for (var i = d.length - 1; i > 0; i--) {
+          var buf = new Uint32Array(1); crypto.getRandomValues(buf);
+          var j = buf[0] % (i + 1); var t = d[i]; d[i] = d[j]; d[j] = t;
+        }
+        return d;
+      }
+      function eval5(cards) {
+        var ranks = cards.map(function (c) { return c.r; }).sort(function (a, b) { return b - a; });
+        var flush = cards.every(function (c) { return c.s === cards[0].s; });
+        var uniq = ranks.filter(function (v, i) { return ranks.indexOf(v) === i; });
+        var straightHigh = 0;
+        if (uniq.length === 5) {
+          if (uniq[0] - uniq[4] === 4) straightHigh = uniq[0];
+          else if (uniq[0] === 14 && uniq[1] === 5) straightHigh = 5; // wheel
+        }
+        var counts = {};
+        ranks.forEach(function (r) { counts[r] = (counts[r] || 0) + 1; });
+        var groups = Object.keys(counts).map(function (r) { return { r: Number(r), n: counts[r] }; })
+          .sort(function (a, b) { return b.n - a.n || b.r - a.r; });
+        var g = groups.map(function (x) { return x.n; });
+        var gr = groups.map(function (x) { return x.r; });
+        if (straightHigh && flush) return { score: [8, straightHigh], name: straightHigh === 14 ? "Royal flush" : "Straight flush" };
+        if (g[0] === 4) return { score: [7, gr[0], gr[1]], name: "Four of a kind" };
+        if (g[0] === 3 && g[1] === 2) return { score: [6, gr[0], gr[1]], name: "Full house" };
+        if (flush) return { score: [5].concat(ranks), name: "Flush" };
+        if (straightHigh) return { score: [4, straightHigh], name: "Straight" };
+        if (g[0] === 3) return { score: [3, gr[0]].concat(gr.slice(1)), name: "Three of a kind" };
+        if (g[0] === 2 && g[1] === 2) return { score: [2, gr[0], gr[1], gr[2]], name: "Two pair" };
+        if (g[0] === 2) return { score: [1, gr[0]].concat(gr.slice(1)), name: "Pair" };
+        return { score: [0].concat(ranks), name: "High card" };
+      }
+      function cmpScore(a, b) {
+        for (var i = 0; i < Math.max(a.length, b.length); i++) {
+          var d = (a[i] || 0) - (b[i] || 0);
+          if (d !== 0) return d;
+        }
+        return 0;
+      }
+      function evalBest(cards) {
+        var best = null, n = cards.length;
+        for (var a = 0; a < n - 1; a++) for (var b = a + 1; b < n; b++) {
+          var five = cards.filter(function (_, i) { return i !== a && i !== b; });
+          var ev = eval5(five);
+          if (!best || cmpScore(ev.score, best.score) > 0) best = ev;
+        }
+        return best;
+      }
+      function fmt(n) { return Number(n).toLocaleString("en-US"); }
+
+      /* ============================================================
+         GAME ENGINE (runs on the host, or locally in solo mode)
+         ============================================================ */
+      var BOT_NAMES = ["Marco", "Dee", "Stacks", "Lucky Lu", "Priya", "Tomás", "Ghost", "Rex"];
+      var Engine = null;
+
+      function createEngine(settings, onChange) {
+        var P = {};           // id -> player
+        var order = [];       // player ids in join order
+        var G = {
+          phase: "lobby", board: [], deck: [], dealerSeat: -1, turnId: null,
+          currentBet: 0, minRaise: settings.bb, handNo: 0, reveal: false,
+          winnerText: "", log: [], locked: false, sb: settings.sb, bb: settings.bb, buyIn: settings.buyIn
+        };
+        function log(txt, street) { G.log.unshift({ txt: txt, street: !!street }); if (G.log.length > 60) G.log.pop(); }
+        function emit() { onChange(); }
+        function seated() { return order.map(function (id) { return P[id]; }).filter(function (p) { return p.seat !== null; }); }
+        function bySeat(seat) { return seated().filter(function (p) { return p.seat === seat; })[0] || null; }
+        function inHand() { return seated().filter(function (p) { return p.inHand && !p.folded; }); }
+        function canAct(p) { return p.inHand && !p.folded && !p.allIn; }
+        function needsAction(p) { return canAct(p) && (!p.acted || p.betRound < G.currentBet); }
+        function potTotal() { return seated().reduce(function (s, p) { return s + p.betHand; }, 0); }
+        function nextSeatWith(fromSeat, pred) {
+          for (var i = 1; i <= 8; i++) { var p = bySeat((fromSeat + i) % 8); if (p && pred(p)) return p; }
+          return null;
+        }
+        function pay(p, amt) {
+          var a = Math.min(amt, p.chips);
+          p.chips -= a; p.betRound += a; p.betHand += a;
+          if (p.chips === 0) p.allIn = true;
+          return a;
+        }
+
+        /* ---------- players ---------- */
+        function addPlayer(id, name, isBot) {
+          if (P[id]) return P[id];
+          var p = { id: id, name: name || "Player", seat: null, chips: 0, isBot: !!isBot, connected: true,
+            inHand: false, folded: false, allIn: false, cards: [], betRound: 0, betHand: 0,
+            acted: false, lastAction: "", handName: "", wonAmt: 0 };
+          P[id] = p; order.push(id); return p;
+        }
+        function removePlayer(id) {
+          var p = P[id]; if (!p) return;
+          if (p.inHand && !p.folded && G.phase !== "lobby" && G.phase !== "handEnd") {
+            p.folded = true; log(p.name + " left and folded.");
+            afterAction();
+          }
+          delete P[id]; order = order.filter(function (x) { return x !== id; });
+          emit();
+        }
+        function sit(id, seat) {
+          var p = P[id]; if (!p) return;
+          if (seat < 0 || seat > 7 || bySeat(seat)) return;
+          if (p.inHand && G.phase !== "lobby" && G.phase !== "handEnd") return; // can't move mid-hand
+          p.seat = seat;
+          if (p.chips === 0) p.chips = G.buyIn;
+          log(p.name + " took seat " + (seat + 1) + ".");
+          emit();
+        }
+        function stand(id) {
+          var p = P[id]; if (!p) return;
+          if (p.inHand && G.phase !== "lobby" && G.phase !== "handEnd") return;
+          p.seat = null; emit();
+        }
+
+        /* ---------- hand flow ---------- */
+        function eligible() { return seated().filter(function (p) { return p.chips > 0 && (p.connected || p.isBot); }); }
+        function startHand() {
+          var el = eligible();
+          if (el.length < 2 || (G.phase !== "lobby" && G.phase !== "handEnd")) return false;
+          G.handNo++; G.reveal = false; G.winnerText = ""; G.board = []; G.deck = newDeck(); G.locked = false;
+          seated().forEach(function (p) {
+            p.inHand = false; p.folded = false; p.allIn = false; p.cards = [];
+            p.betRound = 0; p.betHand = 0; p.acted = false; p.lastAction = ""; p.handName = ""; p.wonAmt = 0;
+          });
+          el.forEach(function (p) { p.inHand = true; });
+          // dealer
+          var startFrom = G.dealerSeat;
+          var dealer = nextSeatWith(startFrom, function (p) { return p.inHand; });
+          G.dealerSeat = dealer.seat;
+          // deal two rounds
+          var dealOrder = []; var cur = dealer;
+          for (var k = 0; k < el.length; k++) { dealOrder.push(cur); cur = nextSeatWith(cur.seat, function (p) { return p.inHand; }); }
+          for (var round = 0; round < RULE_PACKS.holdem.holeCards; round++)
+            dealOrder.forEach(function (p) { p.cards.push(G.deck.pop()); });
+          // blinds
+          var sbP, bbP;
+          if (el.length === 2) { sbP = dealer; bbP = nextSeatWith(dealer.seat, function (p) { return p.inHand; }); }
+          else {
+            sbP = nextSeatWith(dealer.seat, function (p) { return p.inHand; });
+            bbP = nextSeatWith(sbP.seat, function (p) { return p.inHand; });
+          }
+          G.sbSeat = sbP.seat; G.bbSeat = bbP.seat;
+          pay(sbP, G.sb); sbP.lastAction = "Small blind " + fmt(sbP.betRound);
+          pay(bbP, G.bb); bbP.lastAction = "Big blind " + fmt(bbP.betRound);
+          G.currentBet = Math.max(sbP.betRound, bbP.betRound);
+          G.minRaise = G.bb;
+          G.phase = "preflop";
+          log("Hand #" + G.handNo + " — " + dealer.name + " deals. Blinds " + G.sb + "/" + G.bb + ".", true);
+          log(sbP.name + " posts small blind " + fmt(sbP.betRound) + "; " + bbP.name + " posts big blind " + fmt(bbP.betRound) + ".");
+          // first to act: heads-up -> dealer/SB; else UTG
+          var first = el.length === 2 ? dealer : nextSeatWith(bbP.seat, function (p) { return p.inHand; });
+          setTurn(first);
+          emit(); maybeBot();
+          return true;
+        }
+        function setTurn(p) {
+          G.turnId = p ? p.id : null;
+        }
+        function startStreet(street) {
+          G.phase = street;
+          seated().forEach(function (p) { p.betRound = 0; p.acted = false; p.lastAction = ""; });
+          G.currentBet = 0; G.minRaise = G.bb;
+          if (street === "flop") { G.deck.pop(); G.board.push(G.deck.pop(), G.deck.pop(), G.deck.pop()); log("Flop is dealt.", true); }
+          if (street === "turn") { G.deck.pop(); G.board.push(G.deck.pop()); log("Turn is dealt.", true); }
+          if (street === "river") { G.deck.pop(); G.board.push(G.deck.pop()); log("River is dealt.", true); }
+          var actors = inHand().filter(canAct);
+          if (actors.length === 0) { runout(); return; }
+          var first = nextSeatWith(G.dealerSeat, function (p) { return canAct(p); });
+          setTurn(first);
+        }
+        function runout() {
+          G.locked = true; setTurn(null); emit();
+          function step() {
+            if (G.board.length >= 5) { G.locked = false; showdown(); return; }
+            seated().forEach(function (p) { p.betRound = 0; });
+            G.currentBet = 0;
+            if (G.board.length === 0) { G.phase = "flop"; G.deck.pop(); G.board.push(G.deck.pop(), G.deck.pop(), G.deck.pop()); log("Flop is dealt (all-in runout).", true); }
+            else if (G.board.length === 3) { G.phase = "turn"; G.deck.pop(); G.board.push(G.deck.pop()); log("Turn is dealt (all-in runout).", true); }
+            else { G.phase = "river"; G.deck.pop(); G.board.push(G.deck.pop()); log("River is dealt (all-in runout).", true); }
+            emit(); setTimeout(step, 950);
+          }
+          setTimeout(step, 700);
+        }
+        function endStreet() {
+          var next = { preflop: "flop", flop: "turn", turn: "river", river: null }[G.phase];
+          if (!next) { showdown(); return; }
+          // if at most one player can still act and nobody owes chips, run the board out
+          var actors = inHand().filter(canAct);
+          if (actors.length <= 1 && G.board.length < 5) { G.phase = next === "flop" ? "preflop" : G.phase; startStreet(next); return; }
+          startStreet(next);
+        }
+        function winByFold() {
+          var w = inHand()[0];
+          var pot = potTotal();
+          w.chips += pot; w.wonAmt = pot;
+          G.winnerText = w.name + " wins " + fmt(pot) + " — everyone else folded.";
+          log(G.winnerText);
+          G.phase = "handEnd"; G.reveal = false; setTurn(null);
+          seated().forEach(function (p) { p.betRound = 0; });
+          emit();
+        }
+        function showdown() {
+          G.phase = "handEnd"; G.reveal = true; setTurn(null);
+          var contenders = inHand();
+          contenders.forEach(function (p) { p.handName = evalBest(p.cards.concat(G.board)).name; });
+          // build side pots from total contributions
+          var contrib = seated().filter(function (p) { return p.betHand > 0; })
+            .map(function (p) { return { p: p, amt: p.betHand }; });
+          var levels = contrib.map(function (c) { return c.amt; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+          var prev = 0, summary = [];
+          levels.forEach(function (lvl) {
+            var inPot = contrib.filter(function (c) { return c.amt >= lvl; });
+            var size = (lvl - prev) * inPot.length; prev = lvl;
+            var elig = inPot.filter(function (c) { return !c.p.folded; });
+            if (!elig.length || size === 0) return;
+            var best = null;
+            elig.forEach(function (c) { var s = evalBest(c.p.cards.concat(G.board)).score; if (!best || cmpScore(s, best) > 0) best = s; });
+            var winners = elig.filter(function (c) { return cmpScore(evalBest(c.p.cards.concat(G.board)).score, best) === 0; })
+              .map(function (c) { return c.p; });
+            winners.sort(function (a, b) { return ((a.seat - G.dealerSeat + 8) % 8) - ((b.seat - G.dealerSeat + 8) % 8); });
+            var share = Math.floor(size / winners.length), rem = size - share * winners.length;
+            winners.forEach(function (w, i) {
+              var amt = share + (i < rem ? 1 : 0);
+              w.chips += amt; w.wonAmt += amt;
+            });
+            summary.push(winners.map(function (w) { return w.name; }).join(" & ") + " win" + (winners.length > 1 ? "" : "s") + " " + fmt(size) + " with " + winners[0].handName);
+          });
+          G.winnerText = summary.join(" · ");
+          summary.forEach(function (s) { log("Showdown: " + s + "."); });
+          seated().forEach(function (p) { p.betRound = 0; });
+          emit();
+        }
+        function afterAction() {
+          if (G.phase === "lobby" || G.phase === "handEnd") { emit(); return; }
+          if (inHand().length === 1) { winByFold(); return; }
+          var pending = inHand().filter(needsAction);
+          if (pending.length === 0) { endStreet(); emit(); maybeBot(); return; }
+          var cur = bySeat(G.turnSeatHint != null ? G.turnSeatHint : 0);
+          var fromSeat = (G.lastActorSeat != null) ? G.lastActorSeat : G.dealerSeat;
+          var nxt = nextSeatWith(fromSeat, function (p) { return needsAction(p); });
+          setTurn(nxt);
+          emit(); maybeBot();
+        }
+        function act(id, action, amount) {
+          var p = P[id];
+          if (!p || G.locked || G.turnId !== id) return;
+          var toCall = G.currentBet - p.betRound;
+          G.lastActorSeat = p.seat;
+          if (action === "fold") {
+            p.folded = true; p.acted = true; p.lastAction = "Fold";
+            log(p.name + " folds.");
+          } else if (action === "check") {
+            if (toCall !== 0) return;
+            p.acted = true; p.lastAction = "Check"; log(p.name + " checks.");
+          } else if (action === "call") {
+            var paid = pay(p, toCall);
+            p.acted = true; p.lastAction = p.allIn ? "All-in " + fmt(p.betRound) : "Call " + fmt(paid);
+            log(p.name + (p.allIn ? " calls all-in for " : " calls ") + fmt(paid) + ".");
+          } else if (action === "raise") {
+            var target = Math.floor(Number(amount) || 0);
+            var maxTo = p.betRound + p.chips;
+            if (target > maxTo) target = maxTo;
+            var minTo = G.currentBet + G.minRaise;
+            if (target < minTo && target !== maxTo) return;      // below min-raise and not all-in
+            if (target <= G.currentBet) return;
+            var wasBet = G.currentBet;
+            var paidR = pay(p, target - p.betRound);
+            if (target - wasBet >= G.minRaise) G.minRaise = target - wasBet;
+            G.currentBet = target;
+            p.acted = true;
+            // a raise re-opens action for everyone else
+            seated().forEach(function (q) { if (q !== p && canAct(q) && q.betRound < G.currentBet) q.acted = q.acted && false; });
+            inHand().forEach(function (q) { if (q !== p && canAct(q)) q.acted = false; });
+            p.acted = true;
+            p.lastAction = p.allIn ? "All-in " + fmt(target) : (wasBet === 0 ? "Bet " + fmt(target) : "Raise to " + fmt(target));
+            log(p.name + (p.allIn ? " goes all-in for " : (wasBet === 0 ? " bets " : " raises to ")) + fmt(target) + ".");
+          } else { return; }
+          afterAction();
+        }
+
+        /* ---------- bots ---------- */
+        function maybeBot() {
+          var p = G.turnId ? P[G.turnId] : null;
+          if (!p || !p.isBot || G.locked) return;
+          setTimeout(function () {
+            if (!P[p.id] || G.turnId !== p.id || G.locked) return;
+            botDecision(p);
+          }, 650 + Math.random() * 750);
+        }
+        function botDecision(p) {
+          var toCall = G.currentBet - p.betRound;
+          var strength = 0.3 + Math.random() * 0.4;
+          var pair = p.cards[0].r === p.cards[1].r;
+          var hi = Math.max(p.cards[0].r, p.cards[1].r);
+          if (G.phase === "preflop") strength = (hi - 2) / 12 * 0.5 + (pair ? 0.35 : 0) + (p.cards[0].s === p.cards[1].s ? 0.06 : 0) + Math.random() * 0.15;
+          else { var ev = evalBest(p.cards.concat(G.board)); strength = Math.min(1, ev.score[0] / 4 + Math.random() * 0.25); }
+          var pot = potTotal();
+          if (toCall === 0) {
+            if (strength > 0.62 && p.chips > G.bb) {
+              var betTo = Math.min(p.betRound + p.chips, Math.max(G.currentBet + G.minRaise, Math.round(pot * 0.6 / 5) * 5));
+              act(p.id, "raise", betTo);
+            } else act(p.id, "check");
+          } else if (toCall > p.chips * 0.45 && strength < 0.55) act(p.id, "fold");
+          else if (strength > 0.8 && p.chips > toCall + G.minRaise) act(p.id, "raise", Math.min(p.betRound + p.chips, G.currentBet + G.minRaise * 2));
+          else act(p.id, "call");
+        }
+        function addBot() {
+          var used = seated().map(function (p) { return p.seat; });
+          var freeSeat = -1;
+          for (var s = 0; s < 8; s++) if (used.indexOf(s) === -1) { freeSeat = s; break; }
+          if (freeSeat === -1) return null;
+          var name = BOT_NAMES.filter(function (n) { return !order.some(function (id) { return P[id].name === n; }); })[0] || ("Bot " + Math.floor(Math.random() * 90 + 10));
+          var id = "bot-" + Math.random().toString(36).slice(2, 8);
+          var b = addPlayer(id, name, true);
+          sit(id, freeSeat);
+          return b;
+        }
+        function rebuy(id) {
+          var p = P[id]; if (!p) return;
+          if (p.seat !== null && p.chips === 0 && !p.inHand) { p.chips = G.buyIn; log(p.name + " rebought for " + fmt(G.buyIn) + "."); emit(); }
+          else if (p.seat !== null && p.chips === 0 && G.phase === "handEnd") { p.chips = G.buyIn; emit(); }
+        }
+        function botRebuys() {
+          seated().forEach(function (p) { if (p.isBot && p.chips === 0) p.chips = G.buyIn; });
+        }
+
+        /* ---------- per-viewer state ---------- */
+        function makeView(forId) {
+          var seatsArr = [];
+          for (var s = 0; s < 8; s++) {
+            var p = bySeat(s);
+            if (!p) { seatsArr.push(null); continue; }
+            var showCards = null;
+            if (p.inHand) {
+              if (p.id === forId || (G.reveal && !p.folded)) showCards = p.cards;
+              else showCards = "back";
+            }
+            seatsArr.push({
+              seat: s, id: p.id, name: p.name, chips: p.chips, isBot: p.isBot, connected: p.connected,
+              inHand: p.inHand, folded: p.folded, allIn: p.allIn, betRound: p.betRound,
+              isDealer: G.dealerSeat === s && p.inHand, isSB: G.sbSeat === s && p.inHand, isBB: G.bbSeat === s && p.inHand,
+              isTurn: G.turnId === p.id, lastAction: p.lastAction, handName: (G.reveal && !p.folded) ? p.handName : "",
+              wonAmt: p.wonAmt, cards: showCards
+            });
+          }
+          return {
+            you: forId, phase: G.phase, board: G.board, pot: potTotal(), handNo: G.handNo,
+            currentBet: G.currentBet, minRaise: G.minRaise, turnId: G.turnId, dealerSeat: G.dealerSeat,
+            winnerText: G.winnerText, seats: seatsArr, log: G.log.slice(0, 40),
+            sb: G.sb, bb: G.bb, buyIn: G.buyIn, seatedCount: seated().length
+          };
+        }
+        return { G: G, P: P, addPlayer: addPlayer, removePlayer: removePlayer, sit: sit, stand: stand,
+          startHand: function () { botRebuys(); return startHand(); }, act: act, addBot: addBot,
+          rebuy: rebuy, makeView: makeView, log: log };
+      }
+
+      /* ============================================================
+         APP STATE / TRANSPORT
+         mode: "solo" (local engine + bots) | "host" | "guest"
+         ============================================================ */
+      var mode = null;
+      var myId = null;
+      var myName = "";
+      var roomCode = "";
+      var peer = null;
+      var guestConns = {};   // host: peerId -> DataConnection
+      var hostConn = null;   // guest: connection to host
+      var lastView = null;
+      var peerPrefix = "homies-holdem-v1-";
+
+      var $ = function (id) { return document.getElementById(id); };
+
+      function setLobbyMsg(txt, ok) {
+        var el = $("lobbyMsg"); el.textContent = txt || ""; el.className = "lobby-msg" + (ok ? " ok" : "");
+      }
+      function showTable() { $("lobbyView").hidden = true; $("tableView").hidden = false; }
+      function setConn(ok, txt) {
+        $("connDot").className = "dot" + (ok ? " ok" : " bad");
+        $("connTxt").textContent = txt;
+      }
+      function showBanner(txt) { var b = $("banner"); b.textContent = txt; b.classList.add("show"); }
+
+      function localSettings() {
+        var bl = $("blindsSel").value.split(",").map(Number);
+        return { sb: bl[0], bb: bl[1], buyIn: Number($("buyinSel").value) };
+      }
+      function genCode() {
+        var alpha = "ABCDEFGHJKMNPQRSTUVWXYZ23456789", out = "";
+        var buf = new Uint32Array(4); crypto.getRandomValues(buf);
+        for (var i = 0; i < 4; i++) out += alpha[buf[i] % alpha.length];
+        return out;
+      }
+
+      /* ---------- engine wiring ---------- */
+      function onEngineChange() {
+        if (mode === "host") {
+          render(Engine.makeView(myId));
+          Object.keys(guestConns).forEach(function (pid) {
+            var c = guestConns[pid];
+            if (c && c.open) { try { c.send({ t: "state", view: Engine.makeView(pid) }); } catch (e) {} }
+          });
+        } else if (mode === "solo") {
+          render(Engine.makeView(myId));
+        }
+      }
+      function startEngine(settings) {
+        Engine = createEngine(settings, onEngineChange);
+      }
+
+      /* ---------- actions from UI ---------- */
+      function sendSit(seat) {
+        if (mode === "guest") hostConn && hostConn.send({ t: "sit", seat: seat });
+        else Engine.sit(myId, seat);
+      }
+      function sendStand() {
+        if (mode === "guest") hostConn && hostConn.send({ t: "stand" });
+        else Engine.stand(myId);
+      }
+      function sendAct(action, amount) {
+        if (mode === "guest") hostConn && hostConn.send({ t: "act", action: action, amount: amount });
+        else Engine.act(myId, action, amount);
+      }
+      function sendDeal() {
+        if (mode === "guest") return;
+        Engine.startHand();
+      }
+      function sendAddBot() {
+        if (mode === "guest") return;
+        Engine.addBot(); onEngineChange();
+      }
+      function sendRebuy() {
+        if (mode === "guest") hostConn && hostConn.send({ t: "rebuy" });
+        else Engine.rebuy(myId);
+      }
+
+      /* ---------- create (host) ---------- */
+      function createTable() {
+        myName = $("nameInput").value.trim();
+        if (!myName) { setLobbyMsg("Type your name first — that's what shows at the table."); return; }
+        if (typeof Peer === "undefined") { setLobbyMsg("The peer library didn't load. Check your connection and reload, or play solo vs bots."); return; }
+        setLobbyMsg("Creating your table…", true);
+        roomCode = genCode();
+        var settings = localSettings();
+        try {
+          peer = new Peer(peerPrefix + roomCode.toLowerCase());
+        } catch (e) { setLobbyMsg("Couldn't start peer hosting in this browser."); return; }
+        var opened = false;
+        peer.on("open", function (id) {
+          opened = true;
+          mode = "host"; myId = "host";
+          startEngine(settings);
+          Engine.addPlayer(myId, myName, false);
+          Engine.sit(myId, 0);
+          enterTable(roomCode, "Hosting — share the room code");
+          Engine.log("Table created by " + myName + ". Room code " + roomCode + ".");
+          onEngineChange();
+        });
+        peer.on("connection", function (conn) {
+          conn.on("open", function () {
+            guestConns[conn.peer] = conn;
+          });
+          conn.on("data", function (msg) { hostHandle(conn, msg); });
+          conn.on("close", function () { hostGuestGone(conn.peer); });
+          conn.on("error", function () { hostGuestGone(conn.peer); });
+        });
+        peer.on("error", function (err) {
+          if (!opened) {
+            if (err.type === "unavailable-id") { setLobbyMsg("That room code collided — hit Create again."); }
+            else setLobbyMsg("Couldn't reach the peer connection service (" + err.type + "). Solo vs bots still works.");
+            try { peer.destroy(); } catch (e) {}
+            peer = null;
+          }
+        });
+        peer.on("disconnected", function () { setConn(false, "Broker disconnected — trying to reconnect"); try { peer.reconnect(); } catch (e) {} });
+      }
+      function hostHandle(conn, msg) {
+        if (!msg || !msg.t) return;
+        var pid = conn.peer;
+        if (msg.t === "hello") {
+          var p = Engine.addPlayer(pid, String(msg.name || "Guest").slice(0, 16), false);
+          p.connected = true;
+          Engine.log(p.name + " connected.");
+          try { conn.send({ t: "state", view: Engine.makeView(pid) }); } catch (e) {}
+          onEngineChange();
+        } else if (msg.t === "sit") Engine.sit(pid, msg.seat);
+        else if (msg.t === "stand") Engine.stand(pid);
+        else if (msg.t === "act") Engine.act(pid, msg.action, msg.amount);
+        else if (msg.t === "rebuy") Engine.rebuy(pid);
+      }
+      function hostGuestGone(pid) {
+        if (!guestConns[pid] && !Engine) return;
+        delete guestConns[pid];
+        if (Engine && Engine.P[pid]) {
+          Engine.P[pid].connected = false;
+          Engine.log(Engine.P[pid].name + " disconnected.");
+          Engine.removePlayer(pid);
+        }
+      }
+
+      /* ---------- join (guest) ---------- */
+      function joinTable() {
+        myName = $("nameInput").value.trim();
+        var code = $("joinCode").value.trim().toUpperCase();
+        if (!myName) { setLobbyMsg("Type your name first — that's what shows at the table."); return; }
+        if (code.length !== 4) { setLobbyMsg("The room code is 4 letters — check it and try again."); return; }
+        if (typeof Peer === "undefined") { setLobbyMsg("The peer library didn't load. Check your connection and reload."); return; }
+        setLobbyMsg("Looking for table " + code + "…", true);
+        roomCode = code;
+        try { peer = new Peer(); } catch (e) { setLobbyMsg("Couldn't start peer networking in this browser."); return; }
+        var settled = false;
+        peer.on("open", function (id) {
+          myId = id;
+          hostConn = peer.connect(peerPrefix + code.toLowerCase(), { reliable: true });
+          hostConn.on("open", function () {
+            settled = true;
+            mode = "guest";
+            hostConn.send({ t: "hello", name: myName });
+            enterTable(code, "Connected to host");
+          });
+          hostConn.on("data", function (msg) {
+            if (msg && msg.t === "state") render(msg.view);
+          });
+          hostConn.on("close", function () {
+            showBanner("The host closed the table (their tab closed or they left). The game is over — head back to the lobby to start a new one.");
+            setConn(false, "Host disconnected");
+            disableActions();
+          });
+          hostConn.on("error", function () {});
+        });
+        peer.on("error", function (err) {
+          if (settled) return;
+          if (err.type === "peer-unavailable") setLobbyMsg("No table found with code " + code + ". Check the code — and make sure the host's tab is still open.");
+          else setLobbyMsg("Couldn't reach the peer connection service (" + err.type + ").");
+        });
+      }
+
+      /* ---------- solo ---------- */
+      function soloTable() {
+        myName = $("nameInput").value.trim() || "You";
+        mode = "solo"; myId = "me"; roomCode = "SOLO";
+        startEngine({ sb: 10, bb: 20, buyIn: 1000 });
+        Engine.addPlayer(myId, myName, false);
+        Engine.sit(myId, 0);
+        Engine.addBot(); Engine.addBot(); Engine.addBot();
+        enterTable("SOLO", "Solo practice vs bots");
+        Engine.log("Practice table — you're playing bots. Deal when ready.");
+        onEngineChange();
+      }
+
+      function enterTable(code, connText) {
+        showTable();
+        $("roomCodeTxt").textContent = code;
+        setConn(true, connText);
+        if (Engine) $("blindsPill").textContent = "Blinds " + Engine.G.sb + " / " + Engine.G.bb + " · Buy-in " + fmt(Engine.G.buyIn);
+        else if (mode === "guest") $("blindsPill").textContent = "Waiting for table state…";
+      }
+
+      function leaveTable() {
+        try { if (peer) peer.destroy(); } catch (e) {}
+        peer = null; hostConn = null; guestConns = {}; Engine = null; mode = null; lastView = null;
+        $("tableView").hidden = true; $("lobbyView").hidden = false;
+        $("banner").classList.remove("show");
+        setLobbyMsg("");
+      }
+
+      /* ============================================================
+         RENDERING
+         ============================================================ */
+      var SEAT_POS = [
+        { x: 50, y: 97 }, { x: 16, y: 84 }, { x: 8, y: 50 }, { x: 16, y: 16 },
+        { x: 50, y: 3 }, { x: 84, y: 16 }, { x: 92, y: 50 }, { x: 84, y: 84 }
+      ];
+      var SEAT_POS_MOBILE = [
+        { x: 50, y: 96 }, { x: 18, y: 83 }, { x: 12, y: 50 }, { x: 18, y: 17 },
+        { x: 50, y: 4 }, { x: 82, y: 17 }, { x: 88, y: 50 }, { x: 82, y: 83 }
+      ];
+      function cardEl(card, size) {
+        var d = document.createElement("div");
+        if (card === "back") { d.className = "card back " + (size || ""); d.innerHTML = "<span class='r'>&nbsp;</span>"; return d; }
+        if (!card) { d.className = "card empty " + (size || ""); return d; }
+        d.className = "card " + (size || "") + ((card.s === 1 || card.s === 2) ? " red" : "");
+        d.innerHTML = "<span class='r'>" + rankTxt(card.r) + "</span><span class='s'>" + SUIT_GLYPH[card.s] + "</span>";
+        return d;
+      }
+      function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+      function render(view) {
+        if (!view) return;
+        lastView = view;
+        if (mode === "guest") $("blindsPill").textContent = "Blinds " + view.sb + " / " + view.bb + " · Buy-in " + fmt(view.buyIn);
+        // phase + board + pot
+        var phaseNames = { lobby: view.handNo ? "Between hands" : "Lobby", preflop: "Preflop", flop: "Flop", turn: "Turn", river: "River", handEnd: view.reveal ? "Showdown" : "Hand over" };
+        $("phaseLabel").textContent = (view.handNo ? "Hand #" + view.handNo + " · " : "") + (phaseNames[view.phase] || view.phase);
+        var board = $("board"); board.innerHTML = "";
+        for (var i = 0; i < 5; i++) board.appendChild(cardEl(view.board[i] || null, ""));
+        $("potAmt").textContent = fmt(view.phase === "handEnd" ? 0 : view.pot);
+        var cm = $("centerMsg");
+        if (view.phase === "handEnd" && view.winnerText) { cm.innerHTML = "<span class='winner-msg'>" + esc(view.winnerText) + "</span>"; }
+        else if (view.turnId) {
+          var tp = view.seats.filter(function (s) { return s && s.id === view.turnId; })[0];
+          cm.textContent = tp ? (tp.id === view.you ? "Your move." : tp.name + " is thinking…") : "";
+        } else if (view.phase === "lobby" || view.phase === "handEnd") cm.textContent = view.seatedCount >= 2 ? "Ready when the host deals." : "Waiting for at least 2 seated players.";
+        else cm.textContent = "";
+        renderSeats(view);
+        renderActions(view);
+        renderSide(view);
+      }
+
+      function renderSeats(view) {
+        var wrap = $("seats"); wrap.innerHTML = "";
+        var me = view.seats.filter(function (s) { return s && s.id === view.you; })[0];
+        view.seats.forEach(function (s, idx) {
+          var pos = window.innerWidth <= 560 ? SEAT_POS_MOBILE[idx] : SEAT_POS[idx];
+          var el = document.createElement("div");
+          el.className = "seat";
+          el.style.left = pos.x + "%"; el.style.top = pos.y + "%";
+          if (!s) {
+            el.classList.add("empty-seat");
+            el.innerHTML = "<div class='plate'><div class='nm'>" + (me ? "Open seat" : "Sit here") + "</div><div class='stk'>Seat " + (idx + 1) + "</div></div>";
+            if (!me) el.addEventListener("click", function () { sendSit(idx); });
+            wrap.appendChild(el); return;
+          }
+          if (s.id === view.you) el.classList.add("me");
+          if (s.isTurn) el.classList.add("turn");
+          if (s.folded) el.classList.add("folded");
+          if (!s.connected) el.classList.add("disconnected");
+          var cardsHtml = "<div class='cards'>";
+          el.innerHTML = cardsHtml + "</div>";
+          var cardsDiv = el.querySelector(".cards");
+          if (s.inHand && s.cards) {
+            if (s.cards === "back") { cardsDiv.appendChild(cardEl("back", "sm")); cardsDiv.appendChild(cardEl("back", "sm")); }
+            else s.cards.forEach(function (c) { cardsDiv.appendChild(cardEl(c, "sm")); });
+          }
+          var plate = document.createElement("div"); plate.className = "plate";
+          var initial = esc((s.name || "?").trim().charAt(0).toUpperCase() || "?");
+          var sub = s.inHand && s.handName ? esc(s.handName) : (s.allIn ? "All-in" : (s.connected ? "" : "Disconnected"));
+          plate.innerHTML =
+            (s.isDealer ? "<span class='dealer-btn' title='Dealer'>D</span>" : "") +
+            "<div class='avatar'>" + initial + "</div>" +
+            "<div class='nm'>" + esc(s.name) + (s.id === view.you ? " (you)" : "") + (s.isBot ? " · bot" : "") + "</div>" +
+            "<div class='stk'>" + fmt(s.chips) + " chips</div>" +
+            "<div class='act'>" + (s.wonAmt ? "<span class='won-tag'>Won " + fmt(s.wonAmt) + "</span>" : esc(s.lastAction || sub || "")) + "</div>";
+          el.appendChild(plate);
+          if (s.betRound > 0) {
+            var chip = document.createElement("span"); chip.className = "bet-chip"; chip.textContent = fmt(s.betRound);
+            el.appendChild(chip);
+          }
+          if (s.id === view.you && !s.inHand && (view.phase === "lobby" || view.phase === "handEnd")) {
+            plate.style.cursor = "pointer"; plate.title = "Tap to stand up";
+            plate.addEventListener("click", function () { sendStand(); });
+          }
+          wrap.appendChild(el);
+        });
+      }
+
+      var raiseVal = null;
+      function renderActions(view) {
+        var bar = $("actionBar"); bar.innerHTML = "";
+        var me = view.seats.filter(function (s) { return s && s.id === view.you; })[0];
+        var row = document.createElement("div"); row.className = "row";
+        // my cards
+        var mc = document.createElement("div"); mc.className = "my-cards";
+        mc.innerHTML = "<span class='lbl'>Your hand</span>";
+        if (me && me.inHand && me.cards && me.cards !== "back") me.cards.forEach(function (c) { mc.appendChild(cardEl(c, "lg")); });
+        else { mc.appendChild(cardEl(null, "lg")); mc.appendChild(cardEl(null, "lg")); }
+        row.appendChild(mc);
+        var info = document.createElement("div"); info.style.flex = "1"; info.style.minWidth = "180px";
+        if (!me) {
+          info.innerHTML = "<div class='status-line'><b>You're spectating.</b> Tap an empty seat at the table to sit down with " + fmt(view.buyIn) + " chips.</div>";
+        } else if (me.chips === 0 && !me.inHand) {
+          info.innerHTML = "<div class='status-line'><b>You're out of chips.</b></div>";
+          var rb = document.createElement("button"); rb.className = "btn gold small"; rb.textContent = "Rebuy " + fmt(view.buyIn);
+          rb.addEventListener("click", sendRebuy); info.appendChild(rb);
+        } else if (!me.inHand) {
+          info.innerHTML = "<div class='status-line'>You're seated with <b>" + fmt(me.chips) + "</b> chips — you'll be dealt into the next hand.</div>";
+        } else if (me.folded) {
+          info.innerHTML = "<div class='status-line'>You folded this hand. <b>" + fmt(me.chips) + "</b> chips behind.</div>";
+        } else if (view.phase === "handEnd") {
+          info.innerHTML = "<div class='status-line'><b>Hand over.</b> " + esc(view.winnerText || "") + " Your stack: <b>" + fmt(me.chips) + "</b> chips.</div>";
+        } else if (view.turnId !== view.you) {
+          var tp = view.seats.filter(function (s) { return s && s.id === view.turnId; })[0];
+          info.innerHTML = "<div class='status-line'>Waiting on <b>" + esc(tp ? tp.name : "…") + "</b> · your stack <b>" + fmt(me.chips) + "</b>" + (me.betRound ? " · you've bet " + fmt(me.betRound) + " this round" : "") + "</div>";
+        } else {
+          info.innerHTML = "<div class='turn-banner mine'>Your move</div><div class='status-line'>Stack " + fmt(me.chips) + " · pot " + fmt(view.pot) + "</div>";
+        }
+        row.appendChild(info);
+        bar.appendChild(row);
+        if (!me || view.turnId !== view.you || !me.inHand || me.folded) return;
+        // ---- action controls ----
+        var toCall = view.currentBet - me.betRound;
+        var controls = document.createElement("div"); controls.className = "row"; controls.style.marginTop = "12px";
+        var fold = document.createElement("button"); fold.className = "act-btn fold"; fold.textContent = "Fold";
+        fold.addEventListener("click", function () { sendAct("fold"); });
+        controls.appendChild(fold);
+        if (toCall === 0) {
+          var chk = document.createElement("button"); chk.className = "act-btn"; chk.textContent = "Check";
+          chk.addEventListener("click", function () { sendAct("check"); });
+          controls.appendChild(chk);
+        } else {
+          var callAmt = Math.min(toCall, me.chips);
+          var call = document.createElement("button"); call.className = "act-btn";
+          call.textContent = me.chips <= toCall ? "Call all-in " + fmt(callAmt) : "Call " + fmt(callAmt);
+          call.addEventListener("click", function () { sendAct("call"); });
+          controls.appendChild(call);
+        }
+        bar.appendChild(controls);
+        // raise box
+        var maxTo = me.betRound + me.chips;
+        var minTo = Math.min(maxTo, view.currentBet + view.minRaise);
+        if (maxTo > view.currentBet) {
+          var rb2 = document.createElement("div"); rb2.className = "raise-box";
+          var slider = document.createElement("input"); slider.type = "range"; slider.min = minTo; slider.max = maxTo; slider.step = Math.max(1, view.sb);
+          if (raiseVal === null || raiseVal < minTo || raiseVal > maxTo) raiseVal = minTo;
+          slider.value = raiseVal;
+          var num = document.createElement("input"); num.type = "number"; num.min = minTo; num.max = maxTo; num.value = raiseVal;
+          slider.addEventListener("input", function () { raiseVal = Number(slider.value); num.value = raiseVal; });
+          num.addEventListener("input", function () { raiseVal = Number(num.value) || minTo; slider.value = raiseVal; });
+          var quick = document.createElement("div"); quick.className = "quick";
+          function quickBtn(label, val) {
+            var b = document.createElement("button"); b.textContent = label;
+            b.addEventListener("click", function () {
+              raiseVal = Math.max(minTo, Math.min(maxTo, Math.round(val)));
+              slider.value = raiseVal; num.value = raiseVal;
+            });
+            return b;
+          }
+          quick.appendChild(quickBtn("Min", minTo));
+          quick.appendChild(quickBtn("½ Pot", view.currentBet + Math.round(view.pot / 2)));
+          quick.appendChild(quickBtn("Pot", view.currentBet + view.pot));
+          quick.appendChild(quickBtn("All-in", maxTo));
+          var raiseBtn = document.createElement("button"); raiseBtn.className = "act-btn raise";
+          raiseBtn.textContent = view.currentBet === 0 ? "Bet" : "Raise";
+          raiseBtn.addEventListener("click", function () {
+            var v = Math.max(minTo, Math.min(maxTo, Number(num.value) || minTo));
+            raiseVal = null; sendAct("raise", v);
+          });
+          rb2.appendChild(slider); rb2.appendChild(num); rb2.appendChild(quick); rb2.appendChild(raiseBtn);
+          bar.appendChild(rb2);
+          var hint = document.createElement("div"); hint.className = "status-line"; hint.style.marginTop = "6px";
+          hint.textContent = view.currentBet === 0 ? "Bet at least " + fmt(minTo) + "." : "Raise to at least " + fmt(minTo) + " total this round.";
+          bar.appendChild(hint);
+        }
+      }
+      function disableActions() { var b = $("actionBar"); if (b) b.innerHTML = "<div class='status-line'>This table is closed.</div>"; }
+
+      function renderSide(view) {
+        var hc = $("hostControls"); hc.innerHTML = "";
+        var isHostLike = mode === "host" || mode === "solo";
+        if (isHostLike) {
+          var deal = document.createElement("button"); deal.className = "btn gold";
+          var inProgress = ["preflop", "flop", "turn", "river"].indexOf(view.phase) !== -1;
+          deal.textContent = inProgress ? "Hand in progress…" : (view.handNo ? "Deal next hand" : "Deal the first hand");
+          deal.disabled = inProgress || view.seatedCount < 2;
+          deal.addEventListener("click", sendDeal);
+          hc.appendChild(deal);
+          var bot = document.createElement("button"); bot.className = "btn ghost";
+          bot.textContent = "Add a bot to fill a seat";
+          bot.disabled = view.seatedCount >= 8;
+          bot.addEventListener("click", sendAddBot);
+          hc.appendChild(bot);
+          $("tableInfo").innerHTML = "You're hosting: <b>" + view.seatedCount + " / 8</b> seated · Room <b>" + esc(roomCode) + "</b>. Blinds <b>" + view.sb + " / " + view.bb + "</b>, buy-in <b>" + fmt(view.buyIn) + "</b>. The table lives in this tab — keep it open while you play.";
+        } else {
+          $("tableInfo").innerHTML = "You're a guest at <b>" + esc(roomCode) + "</b> · <b>" + view.seatedCount + " / 8</b> seated · Blinds <b>" + view.sb + " / " + view.bb + "</b>, buy-in <b>" + fmt(view.buyIn) + "</b>. The host deals the hands.";
+        }
+        // variant chips
+        var vc = $("variantChips"); vc.innerHTML = "";
+        Object.keys(RULE_PACKS).forEach(function (k) {
+          var rp = RULE_PACKS[k];
+          var sp = document.createElement("span");
+          sp.className = "vchip" + (rp.live ? " live" : "");
+          sp.innerHTML = esc(rp.name) + (rp.live ? "" : " <span class='soon'>" + rp.phase + "</span>");
+          vc.appendChild(sp);
+        });
+        // history
+        var list = $("historyList"); list.innerHTML = "";
+        $("historyEmpty").style.display = view.log.length ? "none" : "block";
+        view.log.forEach(function (entry) {
+          var li = document.createElement("li");
+          if (entry.street) li.className = "street";
+          li.textContent = entry.txt;
+          list.appendChild(li);
+        });
+      }
+
+      /* ---------- wiring ---------- */
+      $("createBtn").addEventListener("click", createTable);
+      $("joinBtn").addEventListener("click", joinTable);
+      $("soloBtn").addEventListener("click", soloTable);
+      $("leaveBtn").addEventListener("click", leaveTable);
+      $("joinCode").addEventListener("keydown", function (e) { if (e.key === "Enter") joinTable(); });
+      $("copyCodeBtn").addEventListener("click", function () {
+        var txt = roomCode;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(function () { $("copyCodeBtn").textContent = "Copied!"; setTimeout(function () { $("copyCodeBtn").textContent = "Copy room code"; }, 1600); }, function () {});
+        }
+      });
+
+      /* Broker reachability pre-check: opens a real throwaway PeerJS
+         connection — the same path Create/Join use — and reports whether
+         the broker answered. */
+      (function checkBroker() {
+        var done = false, tp = null, tries = 0;
+        function finish(ok, msg) {
+          if (done) return; done = true; clearTimeout(to);
+          $("brokerDot").className = "dot " + (ok ? " ok" : " bad");
+          $("brokerText").textContent = msg;
+          if (tp) { try { tp.destroy(); } catch (e) {} tp = null; }
+        }
+        var to = setTimeout(function () { finish(false, "Peer service check timed out from this browser — solo vs bots always works."); }, 8000);
+        function attempt() {
+          if (typeof Peer === "undefined") {
+            if (tries++ < 12) { setTimeout(attempt, 500); return; }
+            finish(false, "The peer library didn't load in this browser — solo vs bots still works.");
+            return;
+          }
+          try { tp = new Peer(); } catch (e) { finish(false, "Peer networking isn't available in this browser — solo vs bots still works."); return; }
+          tp.on("open", function () { finish(true, "Peer connection service is reachable — tables can connect."); });
+          tp.on("error", function (err) { finish(false, "Couldn't reach the peer service from this browser (" + (err && err.type ? err.type : "error") + ") — solo vs bots still works."); });
+        }
+        attempt();
+      })();
+    </script>
+  </body>
+</html>
